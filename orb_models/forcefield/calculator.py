@@ -24,6 +24,8 @@ class ORBCalculator(Calculator):
         max_num_neighbors: Optional[int] = None,
         half_supercell: Optional[bool] = None,
         device: Optional[Union[torch.device, str]] = None,
+        return_bonding_graph: bool = False,
+        vdw_multiplier: float = 0.5,  # Multiplier for the sum of VDW radii used as cutoff for bonding
         directory: str = ".",
     ):
         """Initializes the calculator.
@@ -50,6 +52,8 @@ class ORBCalculator(Calculator):
                 throughput and half memory for very large cells (e.g. 5k+ atoms). For smaller systems, it can harm
                 performance due to additional computation to enforce max_num_neighbors.
             device (Optional[torch.device], optional): The device to use for the model.
+            return_bonding_graph (bool): If True, includes a bonding graph in results.
+            vdw_multiplier (float): Multiplier for the sum of VDW radii to determine bond cutoff (default: 0.5).
             directory (Optional[str], optional): Working directory in which to read and write files and
                 perform calculations.
         """
@@ -63,6 +67,8 @@ class ORBCalculator(Calculator):
         self.edge_method = edge_method
         self.half_supercell = half_supercell
         self.conservative = conservative
+        self.return_bonding_graph = return_bonding_graph
+        self.vdw_multiplier = vdw_multiplier
 
         model_is_conservative = hasattr(self.model, "grad_forces_name")
         if self.conservative is None:
@@ -159,7 +165,7 @@ class ORBCalculator(Calculator):
             is_h_h = (atomic_numbers[senders] == 1) & (atomic_numbers[receivers] == 1)
             vdw_cutoff[is_h_h] = 0.0
 
-            # **New: Save actual calculated values in the results dictionary**
+            # Save actual calculated values in the results dictionary
             self.results["pair_bond_lengths"] = bond_lengths.cpu().numpy()
             self.results["pair_vdw_cutoffs"] = vdw_cutoff.cpu().numpy()
             self.results["pair_senders"] = senders.cpu().numpy()
